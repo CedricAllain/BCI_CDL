@@ -1,7 +1,7 @@
 # %%
 import numpy as np
 from pathlib import Path
-from joblib import Memory
+from joblib import Memory, Parallel, delayed
 
 import mne
 from alphacsc import GreedyCDL, BatchCDL
@@ -20,13 +20,13 @@ memory = Memory(CACHEDIR, verbose=0)
 
 # download full dataset
 dataset = BNCI2014001()
-# dataset.download()
+dataset.download()
 
 SFREQ = 250.0
 cdl_params = {
     # Shape of the dictionary
     'n_atoms': 40,
-    'n_times_atom': int(round(SFREQ * 1.0)),
+    'n_times_atom': int(round(SFREQ * 1.0)/2),
     # Request a rank1 dictionary with unit norm temporal and spatial maps
     'rank1': True,
     'uv_constraint': 'separate',
@@ -55,40 +55,83 @@ cdl_params = {
     # Technical parameters
     'verbose': 1,
     'random_state': 0,
-    'n_jobs': 5
+    'n_jobs': 20
 }
 
 
 @memory.cache()
-def run_cdl(subjects, cdl_params, use_greedy=True):
+def run_cdl(subjects, cdl_params, use_greedy=True, train_on_epochs=False):
     """
 
     """
-    X = get_data(dataset=dataset, subjects=subjects, fmin=2, fmax=None)
+    X_train, labels_train = get_data(
+        dataset=dataset, subjects=subjects, session='session_T', fmin=2,
+        fmax=None, make_epochs=True)
+    X_test, labels_test = get_data(
+        dataset=dataset, subjects=subjects, session='session_E', fmin=2,
+        fmax=None, make_epochs=True)
 
     # apply CDL
     if use_greedy:
         cdl = GreedyCDL(**cdl_params)
     else:
         cdl = BatchCDL(**cdl_params)
-    cdl.fit(X)
 
-    z_hat = cdl.transform(X)
+    if train_on_epochs:
+        cdl.fit(X_train)
+    else:
+        X = get_data(
+            dataset=dataset, subjects=subjects, session='session_T', fmin=2,
+            fmax=None, make_epochs=False)
+        cdl.fit(X)
+
+    z_hat_train = cdl.transform(X_train)
+    z_hat_test = cdl.transform(X_test)
     u_hat_, v_hat_ = cdl.u_hat_, cdl.v_hat_
+
+    # create subject directory
+    if subjects is None:
+        subject_dir = Path('./all_subjects')
+    elif len(subjects) == 1:
+        subject_dir = Path(f'./subject_{subjects[0]}')
+    else:
+        subject_dir = Path(f'./subjects_{subjects}')
+
+    if not subject_dir.exists():
+        subject_dir.mkdir(parents=True)
+
+    # save results
+    np.save(subject_dir / "u_hat_.npy", u_hat_)
+    np.save(subject_dir / "v_hat_.npy", v_hat_)
+    np.save(subject_dir / "z_hat_train.npy", z_hat_train)
+    np.save(subject_dir / "z_hat_test.npy", z_hat_test)
+    np.save(subject_dir / "labels_train.npy", labels_train)
+    np.save(subject_dir / "labels_test.npy", labels_test)
 
     # get one mne.Info instance
     if subjects is None:
         subjects = dataset.subject_list
-    raw = dataset.get_date(subjects[0])[subjects[0]]['session_T']['run_0']
+    raw = dataset.get_data([subjects[0]])[subjects[0]]['session_T']['run_0']
 
+    fig_name = subject_dir / \
+        f"atoms_{subjects}_{'greedy' if use_greedy else 'batch'}"
     plot_atoms(
         cdl, info=raw.info, plotted_atoms='all', sfreq=SFREQ,
-        fig_name=f"atoms_{subjects}_{'greedy' if use_greedy else 'batch'}")
+        fig_name=str(fig_name))
 
     return u_hat_, v_hat_, z_hat
 
+# %%
+
+
+# u_hat_, v_hat_, z_hat = run_cdl(subjects=[1], cdl_params=cdl_params)
+# %%
+
+subjects = dataset.subject_list
+new_rows = Parallel(n_jobs=len(subjects), verbose=1)(
+    delayed(run_cdl)([this_subject], cdl_params) for this_subject in subjects)
 
 u_hat_, v_hat_, z_hat = run_cdl(
-    subjects=[1], cdl_params=cdl_params, use_greedy=True)
+    subjects=subjects, cdl_params=cdl_params, use_greedy=True)
 
 # %%
