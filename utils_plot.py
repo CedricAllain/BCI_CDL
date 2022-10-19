@@ -24,7 +24,7 @@ def plot_atoms(cdl, info, plotted_atoms='all', sfreq=150., fig_name='all_atoms')
     if isinstance(cdl, dict):
         u, v = cdl["u_hat_"], cdl["v_hat_"]
         n_atoms = u.shape[0]
-        n_times_atom = int(round(sfreq * 1.0))  # 1000. ms
+        n_times_atom = int(v.shape[1])  # 1000. ms
     else:
         u, v = cdl.u_hat_, cdl.v_hat_
         n_atoms = cdl.n_components

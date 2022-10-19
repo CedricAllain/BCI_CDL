@@ -8,15 +8,24 @@ from sklearn.metrics import accuracy_score
 
 from moabb.datasets import BNCI2014001
 
+from utils_plot import plot_atoms
+
 dataset = BNCI2014001()
 
 
-def classify(z_train, z_test, labels_train, normalize=True):
+def corr_classify(z_train, z_test, labels_train, normalize=True, tmin=0):
     """
+
+    tmin : int | float
+        seconde à partir de laquelle prendre en compte le vecteur z
 
     """
 
-    n_trials, n_atoms, n_times = z_train.shape
+    tmin_idx = np.rint(tmin * 250.).astype(int)
+    z_train = z_train[:, :, tmin_idx:]
+    z_test = z_test[:, :, tmin_idx:]
+
+    n_trials, n_atoms, _ = z_train.shape
 
     if normalize:
         norm_train = np.linalg.norm(z_train, axis=2, ord=0).reshape(
@@ -48,6 +57,16 @@ def classify(z_train, z_test, labels_train, normalize=True):
     return labels_test
 
 
+def dummy_classifier(z_test, labels_train):
+    """
+
+    """
+    labels_set = np.unique(labels_train)
+    labels_test = np.random.choice(
+        labels_set, size=z_test.shape[0], replace=True)
+    return labels_test
+
+
 def evaluate(dataset, true_label_test, labels_test):
 
     true_label_test = [dataset.event_id[lbl] for lbl in true_label_test]
@@ -60,13 +79,31 @@ def evaluate(dataset, true_label_test, labels_test):
 
 subject = 1
 subject_dir = Path(f'./subject_{subject}')
+
+u_hat_ = np.load(subject_dir / "u_hat_.npy")
+v_hat_ = np.load(subject_dir / "v_hat_.npy")
+model = dict(u_hat_=u_hat_, v_hat_=v_hat_)
+fig_name = subject_dir / \
+    f"atoms_{subject}_greedy"
+
+# raw = dataset.get_data([subject])[subject]['session_T']['run_0']
+# plot_atoms(
+#     model, info=raw.info, plotted_atoms='all', sfreq=250.,
+#     fig_name=str(fig_name))
+
 z_train = np.load(subject_dir / "z_hat_train.npy")
 z_test = np.load(subject_dir / "z_hat_test.npy")
 labels_train = np.load(subject_dir / "labels_train.npy")
 true_label_test = np.load(subject_dir / "labels_test.npy")
 
-labels_test = classify(z_train, z_test, labels_train, normalize=True)
+labels_test = corr_classify(
+    z_train, z_test, labels_train, normalize=True, tmin=2.5)
+corr_accuracy = evaluate(dataset, true_label_test, labels_test)
+print(f"Correlation classifier accurracy: {corr_accuracy}")
 
-print(evaluate(dataset, true_label_test, labels_test))
+dummy_accurracy = np.mean([evaluate(
+    dataset, true_label_test,
+    labels_test=dummy_classifier(z_test, labels_train)) for _ in range(50)])
+print(f"Dummy classifier accurracy: {dummy_accurracy}")
 
 # %%

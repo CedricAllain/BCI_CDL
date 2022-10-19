@@ -26,7 +26,7 @@ SFREQ = 250.0
 cdl_params = {
     # Shape of the dictionary
     'n_atoms': 40,
-    'n_times_atom': int(round(SFREQ * 1.0)/2),
+    'n_times_atom': int(round(SFREQ * 1.0)),
     # Request a rank1 dictionary with unit norm temporal and spatial maps
     'rank1': True,
     'uv_constraint': 'separate',
@@ -124,14 +124,15 @@ def run_cdl(subjects, cdl_params, use_greedy=True, train_on_epochs=False):
 # %%
 
 
-# u_hat_, v_hat_, z_hat = run_cdl(subjects=[1], cdl_params=cdl_params)
+u_hat_, v_hat_, z_hat = run_cdl(
+    subjects=[9], cdl_params=cdl_params, train_on_epochs=False)
 # %%
 
-subjects = dataset.subject_list
-new_rows = Parallel(n_jobs=len(subjects), verbose=1)(
-    delayed(run_cdl)([this_subject], cdl_params) for this_subject in subjects)
+# subjects = dataset.subject_list
+# new_rows = Parallel(n_jobs=len(subjects), verbose=1)(
+#     delayed(run_cdl)([this_subject], cdl_params) for this_subject in subjects)
 
-u_hat_, v_hat_, z_hat = run_cdl(
-    subjects=subjects, cdl_params=cdl_params, use_greedy=True)
+# u_hat_, v_hat_, z_hat = run_cdl(
+#     subjects=subjects, cdl_params=cdl_params, use_greedy=True)
 
 # %%
