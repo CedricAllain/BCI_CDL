@@ -124,15 +124,15 @@ def run_cdl(subjects, cdl_params, use_greedy=True, train_on_epochs=False):
 # %%
 
 
-u_hat_, v_hat_, z_hat = run_cdl(
-    subjects=[9], cdl_params=cdl_params, train_on_epochs=False)
+# u_hat_, v_hat_, z_hat = run_cdl(
+#     subjects=[9], cdl_params=cdl_params, train_on_epochs=False)
 # %%
 
-# subjects = dataset.subject_list
-# new_rows = Parallel(n_jobs=len(subjects), verbose=1)(
-#     delayed(run_cdl)([this_subject], cdl_params) for this_subject in subjects)
+subjects = dataset.subject_list
+new_rows = Parallel(n_jobs=len(subjects), verbose=1)(
+    delayed(run_cdl)([this_subject], cdl_params) for this_subject in subjects)
 
-# u_hat_, v_hat_, z_hat = run_cdl(
-#     subjects=subjects, cdl_params=cdl_params, use_greedy=True)
+u_hat_, v_hat_, z_hat = run_cdl(
+    subjects=subjects, cdl_params=cdl_params, use_greedy=True)
 
 # %%
